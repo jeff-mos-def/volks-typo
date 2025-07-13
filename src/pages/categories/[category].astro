@@ -1,37 +1,58 @@
 ---
 import Layout from '../../components/Layout.astro';
 
+interface Post {
+  frontmatter: {
+    title: string;
+    date: string;
+    excerpt?: string;
+    categories?: string[];
+    [key: string]: any;
+  };
+  Content: any;
+  slug: string;
+  [key: string]: any;
+}
+
 export async function getStaticPaths() {
-  const allPosts = await Astro.glob('../../content/blog/*.md');
-  
-  // Extract all unique categories
-  const allCategories = new Set();
-  allPosts.forEach(post => {
-    if (post.frontmatter.categories) {
-      post.frontmatter.categories.forEach(category => {
-        allCategories.add(category);
-      });
-    }
-  });
+  const modules = import.meta.glob<Post>('../../content/blog/*.md', { eager: true });
 
-  // Create paths for each category
-  return Array.from(allCategories).map(category => {
-    const categorySlug = category.toLowerCase().replace(/[\/\s]+/g, '-');
-    const postsInCategory = allPosts.filter(post => 
-      post.frontmatter.categories && post.frontmatter.categories.includes(category)
-    ).sort((a, b) => new Date(b.frontmatter.date).getTime() - new Date(a.frontmatter.date).getTime());
+  const allPosts: Post[] = Object.entries(modules).map(([path, post]) => ({
+    ...post!,
+    slug: path.split('/').pop()?.replace('.md', '') || '',
+  }));
 
+  const allCategories: Set<string> = new Set();
+  for (const post of allPosts) {
+    post.frontmatter.categories?.forEach((category: string) => {
+      allCategories.add(category);
+    });
+  }
+
+  return Array.from(allCategories).map((category: string) => {
     return {
-      params: { category: categorySlug },
+      params: { category: category.toLowerCase().replace(/[\/\s]+/g, '-') },
       props: {
         category,
-        posts: postsInCategory
+        allPosts
       }
     };
   });
 }
 
-const { category, posts } = Astro.props;
+const { category, allPosts } = Astro.props as {
+  category: string;
+  allPosts: Post[];
+};
+
+const posts = allPosts
+  .filter((post) => post.frontmatter.categories?.includes(category))
+  .sort(
+    (a, b) =>
+      new Date(b.frontmatter.date).getTime() -
+      new Date(a.frontmatter.date).getTime()
+  );
+
 const base = import.meta.env.BASE_URL;
 ---
 
@@ -46,14 +67,14 @@ const base = import.meta.env.BASE_URL;
     </header>
 
     <div class="posts-list">
-      {posts.map(post => (
+      {posts.map((post) => (
         <article class="post-item">
           <h2 class="post-title">
-            <a href={`${base}blog/${post.file.split('/').pop()?.replace('.md', '')}`}>
+            <a href={`${base}blog/${post.slug}`}>
               {post.frontmatter.title}
             </a>
           </h2>
-          
+
           <div class="post-meta">
             <time class="post-date" datetime={post.frontmatter.date}>
               {new Date(post.frontmatter.date).toLocaleDateString('en-US', {
@@ -63,12 +84,12 @@ const base = import.meta.env.BASE_URL;
               })}
             </time>
           </div>
-          
+
           {post.frontmatter.excerpt && (
             <p class="post-excerpt">{post.frontmatter.excerpt}</p>
           )}
-          
-          <a href={`${base}blog/${post.file.split('/').pop()?.replace('.md', '')}`} class="read-more">
+
+          <a href={`${base}blog/${post.slug}`} class="read-more">
             Read More →
           </a>
         </article>

@@ -3,12 +3,40 @@ import { config } from '../config';
 
 const base = import.meta.env.BASE_URL;
 
-const allPosts = await Astro.glob('../content/blog/*.md');
+interface Post {
+  frontmatter: {
+    title: string;
+    date: string;
+    categories?: string[];
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
+const allPosts: (Post & { slug: string })[] = Object.entries(
+  import.meta.glob<Post>('../content/blog/*.md', { eager: true })
+).map(([path, post]) => {
+  const slug = path.split('/').pop()?.replace('.md', '') || '';
+  return {
+    ...post!,
+    slug,
+  };
+});
+
 const recentPosts = allPosts
-  .sort((a, b) => new Date(b.frontmatter.date).getTime() - new Date(a.frontmatter.date).getTime())
+  .sort(
+    (a, b) =>
+      new Date(b.frontmatter.date).getTime() -
+      new Date(a.frontmatter.date).getTime()
+  )
   .slice(0, 5);
 
-const categories = [...new Set(allPosts.flatMap(post => post.frontmatter.categories || []))];
+const categories = [
+  ...new Set(
+    allPosts.flatMap((post) => post.frontmatter.categories ?? [])
+  ),
+];
+
 ---
 
 <div class="sidebar-content">

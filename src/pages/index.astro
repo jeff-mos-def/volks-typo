@@ -1,10 +1,34 @@
 ---
 import Layout from '../components/Layout.astro';
 
-const recentPosts = await Astro.glob('./blog/*.md');
+interface Post {
+  frontmatter: {
+    title: string;
+    date: string;
+    categories?: string[];
+    [key: string]: any;
+  };
+  [key: string]: any;
+}
+
+const recentPosts: (Post & { slug: string })[] = Object.entries(
+  import.meta.glob<Post>('./blog/*.md', { eager: true })
+).map(([path, post]) => {
+  const slug = path.split('/').pop()?.replace('.md', '') || '';
+  return {
+    ...post!,
+    slug,
+  };
+});
+
 const sortedPosts = recentPosts
-  .sort((a, b) => new Date(b.frontmatter.date).getTime() - new Date(a.frontmatter.date).getTime())
+  .sort(
+    (a, b) =>
+      new Date(b.frontmatter.date).getTime() -
+      new Date(a.frontmatter.date).getTime()
+  )
   .slice(0, 3);
+
 ---
 
 <Layout title="Volks-Typo: Bauhaus Meets Monumental Design" description="An Astro blog theme exploring the aesthetic tension between Bauhaus modernism and WW2-era monumental design. Where functionalism meets grandeur in dissonant harmony." showSidebar={false}>
